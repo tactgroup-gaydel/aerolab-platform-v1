@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1788654035658,
+      "tag": "0000_dusty_vargas",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1788654500375,
+      "tag": "0001_wooden_celestials",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1788715511464,
+      "tag": "0002_dazzling_impossible_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1788716133037,
+      "tag": "0003_red_loners",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+ALTER TABLE `connectorRuns` ADD `latencyMs` int;
