@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -233,3 +233,45 @@ export type DataSource = typeof dataSources.$inferSelect;
 export type SourceObservation = typeof sourceObservations.$inferSelect;
 export type MobilityObservationRow = typeof mobilityObservations.$inferSelect;
 export type ConnectorRun = typeof connectorRuns.$inferSelect;
+
+/**
+ * AJOUT — Phase 4 (OurAirports LIVE), table dédiée aux enregistrements
+ * d'aéroports normalisés en provenance des connecteurs de référence
+ * (OurAirports en premier). Ne remplace ni ne modifie aucune table
+ * existante — ajout pur.
+ *
+ * Clé naturelle : (sourceId, externalId) — l'externalId est l'identifiant
+ * interne du fournisseur (ex: le champ "id" d'OurAirports), stable dans le
+ * temps. Cette contrainte unique permet un ON DUPLICATE KEY UPDATE lors
+ * d'une réingestion, pour ne jamais dupliquer un aéroport déjà connu.
+ *
+ * countryCode conserve le code ISO brut tel que fourni par la source
+ * (ex: "SN", "US"). countryId (FK logique vers `countries.id`) reste
+ * nullable et n'est PAS renseigné automatiquement — une correspondance
+ * countryCode → countryId erronée serait une donnée inventée ; ce
+ * rapprochement, s'il est utile, doit être fait explicitement plus tard.
+ */
+export const airports = mysqlTable(
+  "airports",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    sourceId: int("sourceId").notNull(),
+    externalId: varchar("externalId", { length: 64 }).notNull(),
+    name: varchar("name", { length: 220 }).notNull(),
+    iata: varchar("iata", { length: 8 }),
+    icao: varchar("icao", { length: 8 }),
+    countryCode: varchar("countryCode", { length: 4 }),
+    countryId: int("countryId"),
+    latitude: varchar("latitude", { length: 32 }),
+    longitude: varchar("longitude", { length: 32 }),
+    retrievedAt: timestamp("retrievedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    sourceExternalIdx: uniqueIndex("airports_source_external_idx").on(table.sourceId, table.externalId),
+  }),
+);
+
+export type AirportRow = typeof airports.$inferSelect;
+export type InsertAirportRow = typeof airports.$inferInsert;
