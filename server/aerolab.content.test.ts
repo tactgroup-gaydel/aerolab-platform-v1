@@ -64,12 +64,17 @@ describe("aerolab public procedures", () => {
     expect(result.status).toBe("RECEIVED");
   });
 
-  it("exposes the multi-source registry without claiming prepared connectors are active", async () => {
+  it("exposes the multi-source registry without claiming unproven connectors are active", async () => {
     expect(sourceRegistry.some((source) => source.id === "worldmonitor")).toBe(true);
-    expect(sourceRegistry.some((source) => source.id === "ourairports" && source.status === "prepared")).toBe(true);
+    // ourairports earned "active" on 2026-09-15 after a real end-to-end run: 86,080 airports
+    // fetched, validated, normalized, and persisted without duplication on re-run.
+    expect(sourceRegistry.some((source) => source.id === "ourairports" && source.status === "active")).toBe(true);
+    // Sources that have NOT been run end-to-end yet must remain "prepared", not "active".
+    expect(sourceRegistry.some((source) => source.id === "worldbank" && source.status === "prepared")).toBe(true);
     const caller = appRouter.createCaller(createPublicContext());
     const result = await caller.dataEngine.sources();
-    expect(result.active).toHaveLength(0);
+    expect(result.active.some((source) => source.id === "ourairports")).toBe(true);
+    expect(result.prepared.some((connector) => connector.id === "ourairports")).toBe(false);
     expect(result.prepared.length).toBeGreaterThan(0);
   });
 
