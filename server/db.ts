@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, count, eq, like, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { actRequests, connectorRuns, dataSources, InsertUser, users } from "../drizzle/schema";
+import { actRequests, airports, connectorRuns, dataSources, InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -151,4 +151,60 @@ export async function recordConnectorRun(input: ConnectorRunInput) {
     requestFinishedAt: new Date(),
   });
   return { recorded: true } as const;
+}
+
+export type GetAirportsInput = {
+  limit?: number;
+  offset?: number;
+  /** Free-text match against name, IATA, or ICAO code. */
+  search?: string;
+  /** ISO country code, e.g. "SN". */
+  countryCode?: string;
+};
+
+/**
+ * Reads real rows from the `airports` table (populated by
+ * server/connectors/ourairports/persistLive.ts). This is the AeroLab API
+ * boundary — the frontend must go through this function (via the
+ * dataEngine.airports tRPC procedure), never query OurAirports directly.
+ */
+export async function getAirports(input: GetAirportsInput = {}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const limit = Math.min(Math.max(input.limit ?? 20, 1), 100);
+  const offset = Math.max(input.offset ?? 0, 0);
+
+  const conditions = [];
+  if (input.search && input.search.trim()) {
+    const term = `%${input.search.trim()}%`;
+    conditions.push(or(like(airports.name, term), like(airports.iata, term), like(airports.icao, term)));
+  }
+  if (input.countryCode && input.countryCode.trim()) {
+    conditions.push(eq(airports.countryCode, input.countryCode.trim().toUpperCase()));
+  }
+
+  const query = db.select().from(airports);
+  const filtered = conditions.length > 0 ? query.where(and(...conditions)) : query;
+  return filtered.limit(limit).offset(offset);
+}
+
+export async function getAirportsCount(input: Pick<GetAirportsInput, "search" | "countryCode"> = {}) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const conditions = [];
+  if (input.search && input.search.trim()) {
+    const term = `%${input.search.trim()}%`;
+    conditions.push(or(like(airports.name, term), like(airports.iata, term), like(airports.icao, term)));
+  }
+  if (input.countryCode && input.countryCode.trim()) {
+    conditions.push(eq(airports.countryCode, input.countryCode.trim().toUpperCase()));
+  }
+
+  // Real SQL COUNT(*), not a fetch-then-.length — the table has 86,000+ rows.
+  const query = db.select({ total: count() }).from(airports);
+  const filtered = conditions.length > 0 ? query.where(and(...conditions)) : query;
+  const [row] = await filtered;
+  return row?.total ?? 0;
 }

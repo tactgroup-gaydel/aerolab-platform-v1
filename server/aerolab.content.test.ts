@@ -127,6 +127,19 @@ describe("aerolab public procedures", () => {
     expect(snapshot.connectorHealth.every((health) => health.status === "degraded")).toBe(true);
   });
 
+  it("exposes real airports rows through the AeroLab API boundary, degrading to an empty page without a live database", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.dataEngine.airports({});
+    // In this test environment there is no live DATABASE_URL connection (same
+    // fallback mode already exercised by the ACT request test above) — the
+    // procedure must return a well-formed empty page, never throw, and never
+    // fall back to calling OurAirports directly.
+    expect(Array.isArray(result.rows)).toBe(true);
+    expect(result.limit).toBe(20);
+    expect(result.offset).toBe(0);
+    expect(typeof result.total).toBe("number");
+  });
+
   it("rejects an ACT request with an invalid email before persistence", async () => {
     const caller = appRouter.createCaller(createPublicContext());
 

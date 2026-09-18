@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { createActRequest, getActRequestCount } from "./db";
+import { createActRequest, getActRequestCount, getAirports, getAirportsCount } from "./db";
 import { analyses, articles, countries, indicators, infrastructures, markets, projects, searchContent, sectors } from "@shared/content";
 import { connectorCatalog, preparedConnectors } from "./connectors";
 import { getMobilitySnapshot } from "./dataEngine";
@@ -50,6 +50,28 @@ export const appRouter = router({
       infrastructures: infrastructures.map((infrastructure) => ({ ...infrastructure, source: "aerolab-api" as const })),
       mobility: (await getMobilitySnapshot()).observations,
     })),
+    airports: publicProcedure
+      .input(
+        z.object({
+          limit: z.number().int().min(1).max(100).optional(),
+          offset: z.number().int().min(0).optional(),
+          search: z.string().trim().optional(),
+          countryCode: z.string().trim().length(2).optional(),
+        }).optional(),
+      )
+      .query(async ({ input }) => {
+        const params = input ?? {};
+        const [rows, total] = await Promise.all([
+          getAirports(params),
+          getAirportsCount(params),
+        ]);
+        return {
+          rows: rows.map((row) => ({ ...row, source: "ourairports" as const })),
+          total,
+          limit: params.limit ?? 20,
+          offset: params.offset ?? 0,
+        };
+      }),
   }),
   act: router({
     create: publicProcedure
