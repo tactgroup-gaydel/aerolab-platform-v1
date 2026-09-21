@@ -75,3 +75,63 @@
 - [x] Do not activate new connectors before the existing validation baseline is complete
 - [x] Write the factual Phase 3 validation report inside the project
 - [x] Save the Phase 3 checkpoint for delivery
+
+# Phases 4-8 — Data Engine réel : OurAirports de bout en bout (2026-09-13 → 2026-09-19)
+
+⚠️ Cette section a été ajoutée le 2026-09-19/21 après avoir constaté qu'elle manquait du dépôt réel malgré le travail effectué — voir HANDOFF.md pour le contexte de cet écart. Chaque ligne ci-dessous est sourcée par une preuve d'exécution réelle (sortie de terminal, requête SQL, réponse API), pas par une intention ou un code non testé.
+
+## Bug bloquant corrigé (préalable)
+- `server/connectors/stubs/factory.ts` était référencé par les 9 stubs de connecteurs mais absent du dépôt — confirmé absent aussi dans l'archive originale. Restauré (enveloppe autour de `InactiveConnector` existant, aucun nouveau comportement).
+- `server/connectors/registry.ts` enrichi : `coverage`/`accessMethod`/`updateFrequency` ajoutés aux 10 sources.
+- Validé réellement par l'utilisateur (node v26.3.0, pnpm 10.4.1) : `pnpm install` (750 paquets), `pnpm check` (0 erreur), `pnpm test` **12/12**, `pnpm build` OK.
+
+## Pipeline OurAirports MOCK
+- `server/pipeline/ourairportsMockPipeline.ts` + test (7 tests) : Raw → Validation → Normalisation → Entity Resolution sur fixtures explicitement labellisées, pas de vraie donnée.
+- Validé réellement : `pnpm test` → **19/19**.
+
+## OurAirports LIVE (vraie source, vrai réseau)
+- Source vérifiée par recherche web avant tout code : https://ourairports.com/data/ (domaine public) et son miroir https://davidmegginson.github.io/ourairports-data/airports.csv (licence Unlicense), aucune clé requise.
+- `server/connectors/ourairports/index.ts` : fetch réel + parseur CSV par nom de colonne + validation + normalisation. `server/connectors/ourairports/liveCheck.ts` : script manuel de vérification (lecture seule, vrai réseau, jamais dans les tests automatiques).
+- Validé réellement : `pnpm test` → **29/29**. Puis `pnpm tsx server/connectors/ourairports/liveCheck.ts` exécuté avec un vrai accès réseau → **86 076 lignes réelles récupérées**, 0 rejet.
+
+## Persistance réelle en base
+- Base de test créée (l'originale, sur Manus, n'a jamais été retrouvée) : cluster **TiDB Serverless gratuit "cire"**, région Frankfurt, base `test`, compte `tactgroup-gaydel`.
+- `drizzle/schema.ts` : table `airports` ajoutée (additive uniquement), clé unique `(sourceId, externalId)` pour upsert idempotent.
+- `server/connectors/ourairports/persistLive.ts` : script de persistance réelle, upsert par lots (`ON DUPLICATE KEY UPDATE`), enregistre la provenance via `recordConnectorRun`.
+- Migration générée et **relue avant application** (`pnpm drizzle-kit generate` puis `push`, un seul `CREATE TABLE airports`, rien d'autre touché) — appliquée avec succès : **[✓] Changes applied**.
+- Idempotence prouvée deux fois en SQL réel : deux exécutions de `persistLive.ts` (limite 25) → `SELECT COUNT(*) FROM airports` = **25** les deux fois, jamais 50.
+- Import complet exécuté : `persistLive.ts --all` → **86 080 aéroports réels traités et insérés en 46 secondes**, 0 rejet. Confirmé en SQL réel : `SELECT COUNT(*) FROM airports` = **86080**.
+- Commit `47c94e4` poussé sur `origin/main` (pipeline mock + connecteur OurAirports + table airports).
+
+## Statut `ourairports` → `active`
+- `server/connectors/registry.ts` : statut passé de `prepared` à `active`, licence mise à jour avec la source vérifiée ci-dessus (au lieu de "unknown/review required").
+- Incohérence trouvée et corrigée dans `server/connectors/index.ts` : `preparedConnectors` gardait `ourairports` dans la liste "prepared" malgré son nouveau statut — corrigé en le filtrant de cette liste.
+- Un vrai échec de test a détecté cette incohérence avant correction (28/29, pas un faux positif) — corrigé, confirmé réellement à **29/29**.
+- Commits `69f5c2a` (correction) poussés sur `origin/main`.
+
+## Exposition API (`dataEngine.airports`)
+- `server/db.ts` : `getAirports`/`getAirportsCount` (vrai `COUNT(*)` SQL, pas un `.length` après chargement complet — la table fait 86k+ lignes).
+- `server/routers.ts` : procédure tRPC `dataEngine.airports`, paginée, validée par zod.
+- Validé réellement à **30/30** tests.
+- Preuve finale obtenue en interrogeant le vrai serveur (`pnpm dev`, `http://localhost:3000/api/trpc/dataEngine.airports`) : réponse réelle avec `total: 86080`, correspondant exactement à la base.
+- Commit `56eff2a` poussé sur `origin/main`.
+
+## Audit Step 7 (Data Engine)
+- Audit complet réalisé (fichier `AEROLAB_STEP7_DATA_ENGINE_AUDIT.md`, non commité dans le dépôt à ce jour — seulement partagé en conversation). Verdict : **B — FOUNDATION READY WITH P1 FIXES**.
+- Constats principaux : le pipeline OurAirports contourne les tables génériques `sourceObservations`/`mobilityObservations` (héritées de la Phase 2, jamais utilisées) ; la résolution d'entité (`entityResolution.ts`) existe mais n'est jamais appelée dans `persistLive.ts`, et aucune table `entities` n'existe — donc aucune correspondance inter-sources possible aujourd'hui ; le frontend ne consomme pas encore `dataEngine.airports`.
+
+## Step 8 — Contrat `DataConnector` (formalisation, additif)
+- `server/connectors/datasetContract.ts` : `DatasetConnector<TRawRow,TNormalized>` (nouveau), `RealtimeConnector` = alias de `MobilityConnector` existant (World Monitor non touché).
+- `server/connectors/ourairports/asDatasetConnector.ts` : enveloppe les fonctions existantes de `index.ts` sans les dupliquer, pour vérifier que le contrat colle au cas réel.
+- 2 tests écrits, vérifiés statiquement (0 erreur), **mais pas encore testés réellement par l'utilisateur ni commités**.
+
+## Step 8b — Pipeline d'ingestion générique (interrompu, non livré)
+Préparé mais **jamais livré ni testé** avant l'interruption de session (transfert de compte + réinitialisation de l'environnement de travail Claude) :
+- Table `datasets` ajoutée à `drizzle/schema.ts` (additive, schéma seulement — **jamais appliquée en base**, décision explicitement laissée en attente).
+- `server/db.ts` : `upsertAirports()` (extrait de la logique déjà présente dans `persistLive.ts`) et `recordSourceObservation()` (écrit dans `sourceObservations`, jugé adapté pour la couche RAW — contrairement à `mobilityObservations`, jugé inadapté sémantiquement pour des aéroports et donc volontairement non utilisé).
+- `server/ingestionPipeline.ts` : orchestrateur générique (`runDatasetIngestion`) — fetch → parse → validate → normalize → resolveEntity → persist (persistance injectée par l'appelant, jamais codée en dur dans le pipeline).
+- **`persistLive.ts` n'a PAS encore été adapté pour utiliser ce pipeline** — c'était la prochaine étape au moment de l'interruption.
+- **Aucun test écrit pour ce pipeline. Aucune vérification statique faite. Rien commité. Rien poussé.**
+
+## État réel au 2026-09-21 (dernier commit confirmé)
+`8a2ec60` — "Add HANDOFF.md for account transfer", poussé sur `origin/main`. Tout ce qui précède ce commit (Steps 4 à 7, statut `ourairports: active`) est réellement testé et en production sur le dépôt. **Le Step 8 (contrat) et le Step 8b (pipeline générique) existent uniquement sous forme de code préparé en session, jamais livré, jamais testé, jamais commité — à reprendre depuis zéro ou à redemander si une session précédente en a une copie.**
