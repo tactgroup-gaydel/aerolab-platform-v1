@@ -32,10 +32,22 @@ export function AirportsPage() {
     { retry: false, placeholderData: (previous) => previous },
   );
   const statsQuery = trpc.dataEngine.airportsStats.useQuery(undefined, { retry: false });
+  const lpiQuery = trpc.dataEngine.countryIndicators.useQuery({ indicatorCode: "LP.LPI.OVRL.XQ" }, { retry: false });
 
   const rows = airportsQuery.data?.rows ?? [];
   const total = airportsQuery.data?.total ?? 0;
   const stats = statsQuery.data;
+
+  const lpiByCountry = useMemo(() => {
+    const map = new Map<string, { value: number; year?: string; name?: string }>();
+    for (const row of lpiQuery.data?.rows ?? []) {
+      const v = Number(row.value);
+      if (Number.isFinite(v) && row.countryCode) {
+        map.set(row.countryCode.toUpperCase(), { value: v, year: row.year ?? undefined, name: row.countryName ?? undefined });
+      }
+    }
+    return map;
+  }, [lpiQuery.data]);
 
   const rangeLabel = useMemo(() => {
     if (total === 0) return "0";
@@ -80,6 +92,15 @@ export function AirportsPage() {
     prev: locale === "fr" ? "Précédent" : "Previous",
     next: locale === "fr" ? "Suivant" : "Next",
     iataShare: locale === "fr" ? "part IATA" : "IATA share",
+    lpiTitle: locale === "fr" ? "AÉROPORTS × LOGISTIQUE" : "AIRPORTS × LOGISTICS",
+    lpiIntro: locale === "fr"
+      ? "Pour chaque pays le plus doté en aéroports, son indice de performance logistique (LPI) — le lien entre l'infrastructure et la capacité réelle à faire circuler les flux."
+      : "For each country with the most airports, its Logistics Performance Index (LPI) — the link between infrastructure and the real ability to move flows.",
+    lpiSource: locale === "fr" ? "LPI : World Bank · échelle 1–5 · CC BY 4.0" : "LPI: World Bank · scale 1–5 · CC BY 4.0",
+    airportsCol: locale === "fr" ? "aéroports" : "airports",
+    lpiPending: locale === "fr"
+      ? "Indice logistique pas encore chargé — lance l'ingestion World Bank pour l'afficher."
+      : "Logistics index not loaded yet — run the World Bank ingestion to show it.",
   };
 
   const iataShare = stats && stats.total > 0 ? Math.round((stats.withIata / stats.total) * 100) : null;
@@ -135,6 +156,31 @@ export function AirportsPage() {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {stats && stats.topCountries.length > 0 && (
+          <div className="lpi-section">
+            <div className="lpi-head">
+              <span className="eyebrow">{T.lpiTitle}</span>
+              <span className="lpi-source">{T.lpiSource}</span>
+            </div>
+            <p className="lpi-intro">{T.lpiIntro}</p>
+            <div className="lpi-grid">
+              {stats.topCountries.map((item) => {
+                const lpi = lpiByCountry.get(item.countryCode.toUpperCase());
+                const pct = lpi ? Math.max(4, Math.min(100, (lpi.value / 5) * 100)) : 0;
+                return (
+                  <div key={item.countryCode} className="lpi-row">
+                    <span className="lpi-country">{item.countryCode}</span>
+                    <span className="lpi-airports">{formatNumber(item.total, locale)} <small>{T.airportsCol}</small></span>
+                    <div className="lpi-meter" aria-hidden="true"><div className="lpi-meter-fill" style={{ width: `${pct}%` }} /></div>
+                    <span className="lpi-value">{lpi ? lpi.value.toFixed(2) : "—"}{lpi?.year ? <small> · {lpi.year}</small> : null}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {lpiByCountry.size === 0 && <div className="lpi-note">{T.lpiPending}</div>}
           </div>
         )}
 

@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { createActRequest, getActRequestCount, getAirports, getAirportsCount, getAirportsStats } from "./db";
+import { createActRequest, getActRequestCount, getAirports, getAirportsCount, getAirportsStats, getCountryIndicators } from "./db";
 import { analyses, articles, countries, indicators, infrastructures, markets, projects, searchContent, sectors } from "@shared/content";
 import { connectorCatalog, preparedConnectors } from "./connectors";
 import { getMobilitySnapshot } from "./dataEngine";
@@ -76,6 +76,20 @@ export const appRouter = router({
       ...(await getAirportsStats()),
       source: "ourairports" as const,
     })),
+    countryIndicators: publicProcedure
+      .input(
+        z.object({
+          indicatorCode: z.string().trim().optional(),
+          countryCodes: z.array(z.string().trim()).max(300).optional(),
+        }).optional(),
+      )
+      .query(async ({ input }) => {
+        const rows = await getCountryIndicators(input ?? {});
+        return {
+          rows: rows.map((row) => ({ ...row, source: "worldbank" as const })),
+          total: rows.length,
+        };
+      }),
   }),
   act: router({
     create: publicProcedure

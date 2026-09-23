@@ -154,6 +154,30 @@ describe("aerolab public procedures", () => {
     expect(result.topCountries).toHaveLength(0);
   });
 
+  it("exposes country indicators through the AeroLab API boundary, empty without a live database", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.dataEngine.countryIndicators({ indicatorCode: "LP.LPI.OVRL.XQ" });
+    // No live DATABASE_URL in tests: the procedure returns a well-formed empty
+    // page and never throws, never calls the World Bank API directly.
+    expect(Array.isArray(result.rows)).toBe(true);
+    expect(result.rows).toHaveLength(0);
+    expect(result.total).toBe(0);
+  });
+
+  it("parses a verified World Bank LPI response and rejects non-numeric values", async () => {
+    const { parseWorldBankResponse } = await import("./connectors/worldbank/index");
+    const sample = [
+      { page: 1, total: 2 },
+      [
+        { indicator: { id: "LP.LPI.OVRL.XQ", value: "Logistics performance index" }, country: { id: "SN", value: "Senegal" }, countryiso3code: "SEN", date: "2018", value: 2.25 },
+        { indicator: { id: "LP.LPI.OVRL.XQ", value: "Logistics performance index" }, country: { id: "XX", value: "No data" }, countryiso3code: "XXX", date: "2018", value: null },
+      ],
+    ];
+    const records = parseWorldBankResponse(sample);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ countryCode: "SN", countryIso3: "SEN", value: 2.25, year: "2018" });
+  });
+
   it("rejects an ACT request with an invalid email before persistence", async () => {
     const caller = appRouter.createCaller(createPublicContext());
 

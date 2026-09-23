@@ -1,6 +1,6 @@
-import { and, count, countDistinct, eq, isNotNull, like, ne, or, sql } from "drizzle-orm";
+import { and, count, countDistinct, eq, inArray, isNotNull, like, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { actRequests, airports, connectorRuns, dataSources, InsertUser, users } from "../drizzle/schema";
+import { actRequests, airports, connectorRuns, countryIndicators, dataSources, InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -263,4 +263,37 @@ export async function getAirportsStats(topLimit = 12): Promise<AirportsStats> {
     countriesCovered: countriesRow?.total ?? 0,
     topCountries: topCountries.map((row) => ({ countryCode: row.countryCode ?? "", total: row.total })),
   };
+}
+
+export type GetCountryIndicatorsInput = {
+  /** Filtre par code indicateur, ex. "LP.LPI.OVRL.XQ". */
+  indicatorCode?: string;
+  /** Restreint à un ensemble de codes pays ISO2, ex. ["SN", "CI"]. */
+  countryCodes?: string[];
+};
+
+/**
+ * Lit les indicateurs structurels par pays (table `countryIndicators`,
+ * peuplée par server/connectors/worldbank/persistLive.ts). Frontière API
+ * AeroLab : le front passe par cette fonction, jamais par l'API World Bank
+ * directement. Dégrade à un tableau vide sans base — ne jette jamais.
+ */
+export async function getCountryIndicators(input: GetCountryIndicatorsInput = {}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions = [];
+  if (input.indicatorCode && input.indicatorCode.trim()) {
+    conditions.push(eq(countryIndicators.indicatorCode, input.indicatorCode.trim()));
+  }
+  const codes = (input.countryCodes ?? [])
+    .map((c) => c.trim().toUpperCase())
+    .filter((c) => c.length >= 2 && c.length <= 3);
+  if (codes.length > 0) {
+    conditions.push(inArray(countryIndicators.countryCode, codes));
+  }
+
+  const query = db.select().from(countryIndicators);
+  const rows = conditions.length > 0 ? await query.where(and(...conditions)) : await query;
+  return rows;
 }

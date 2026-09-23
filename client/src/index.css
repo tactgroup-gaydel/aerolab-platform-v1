@@ -565,3 +565,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .airport-coords { grid-column: 1 / -1; }
   .real-data-callout svg { display: none; }
 }
+
+/* ── Aéroports × logistique (LPI World Bank) ─────────────────────────── */
+.lpi-section { margin: 6px 0 24px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.lpi-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lpi-head .eyebrow { margin: 0; }
+.lpi-source { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.lpi-intro { margin: 8px 0 16px; max-width: 640px; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+.lpi-grid { display: flex; flex-direction: column; gap: 8px; }
+.lpi-row { display: grid; grid-template-columns: 44px 130px 1fr 78px; align-items: center; gap: 14px; }
+.lpi-country { font-family: "DM Mono", monospace; font-size: 13px; font-weight: 600; color: var(--blue-night); }
+.lpi-airports { font-size: 12px; color: var(--graphite); }
+.lpi-airports small { color: var(--muted); }
+.lpi-meter { height: 8px; border-radius: 999px; background: var(--paper); overflow: hidden; }
+.lpi-meter-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--copper-light), var(--copper)); }
+.lpi-value { font-family: "DM Mono", monospace; font-size: 13px; font-weight: 600; color: var(--blue-night); text-align: right; }
+.lpi-value small { font-weight: 400; color: var(--muted); }
+.lpi-note { margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: var(--paper); color: var(--muted); font-size: 12px; }
+
+@media (max-width: 760px) {
+  .lpi-row { grid-template-columns: 40px 1fr 60px; }
+  .lpi-row .lpi-meter { display: none; }
+}

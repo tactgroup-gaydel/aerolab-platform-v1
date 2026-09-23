@@ -275,3 +275,46 @@ export const airports = mysqlTable(
 
 export type AirportRow = typeof airports.$inferSelect;
 export type InsertAirportRow = typeof airports.$inferInsert;
+
+/**
+ * AJOUT — Jalon J3 (World Bank). Indicateurs structurels par pays en
+ * provenance de sources de référence (World Bank en premier : indice de
+ * performance logistique, LPI). Ajout pur — ne modifie aucune table existante.
+ *
+ * Clé naturelle : (sourceId, indicatorCode, countryCode) — un pays a une seule
+ * valeur courante par indicateur et par source ; une réingestion met à jour la
+ * ligne au lieu de dupliquer.
+ *
+ * countryCode conserve le code 2 lettres fourni par la source (World Bank
+ * `country.id`, ex. "SN"), aligné sur le countryCode des aéroports pour
+ * permettre un rapprochement aéroports ↔ logistique. countryIso3 conserve le
+ * code 3 lettres brut (`countryiso3code`). Aucun code n'est inventé.
+ */
+export const countryIndicators = mysqlTable(
+  "countryIndicators",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    sourceId: int("sourceId").notNull(),
+    indicatorCode: varchar("indicatorCode", { length: 64 }).notNull(),
+    indicatorName: varchar("indicatorName", { length: 240 }),
+    countryCode: varchar("countryCode", { length: 4 }).notNull(),
+    countryIso3: varchar("countryIso3", { length: 8 }),
+    countryName: varchar("countryName", { length: 200 }),
+    value: varchar("value", { length: 64 }),
+    year: varchar("year", { length: 8 }),
+    unit: varchar("unit", { length: 80 }),
+    retrievedAt: timestamp("retrievedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    sourceIndicatorCountryIdx: uniqueIndex("country_indicators_source_indicator_country_idx").on(
+      table.sourceId,
+      table.indicatorCode,
+      table.countryCode,
+    ),
+  }),
+);
+
+export type CountryIndicatorRow = typeof countryIndicators.$inferSelect;
+export type InsertCountryIndicatorRow = typeof countryIndicators.$inferInsert;
