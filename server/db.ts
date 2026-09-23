@@ -293,7 +293,13 @@ export async function getCountryIndicators(input: GetCountryIndicatorsInput = {}
     conditions.push(inArray(countryIndicators.countryCode, codes));
   }
 
-  const query = db.select().from(countryIndicators);
-  const rows = conditions.length > 0 ? await query.where(and(...conditions)) : await query;
-  return rows;
+  try {
+    const query = db.select().from(countryIndicators);
+    const rows = conditions.length > 0 ? await query.where(and(...conditions)) : await query;
+    return rows;
+  } catch {
+    // Table pas encore créée (avant la première ingestion World Bank) : dégrade
+    // proprement en tableau vide plutôt que de jeter/logger une erreur.
+    return [];
+  }
 }
