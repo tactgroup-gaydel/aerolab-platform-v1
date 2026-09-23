@@ -51,6 +51,21 @@ async function startServer() {
       createContext,
     })
   );
+
+  // Route d'amorçage RÉSERVÉE AU DÉVELOPPEMENT : peuple des indicateurs
+  // structurels réels (World Bank) dans la base. Absente en production.
+  if (process.env.NODE_ENV === "development") {
+    app.get("/api/dev/seed-worldbank", async (req, res) => {
+      try {
+        const { persistWorldBankIndicator } = await import("../connectors/worldbank/persist");
+        const indicator = typeof req.query.indicator === "string" ? req.query.indicator : undefined;
+        const result = await persistWorldBankIndicator(indicator);
+        res.json({ ok: true, ...result });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+  }
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
