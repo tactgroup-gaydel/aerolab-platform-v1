@@ -8,6 +8,7 @@ export const copy = {
   more: { fr: "Plus", en: "More" },
   search: { fr: "Rechercher", en: "Search" },
   data: { fr: "Data", en: "Data" },
+  airports: { fr: "Airports", en: "Airports" },
   map: { fr: "Map", en: "Map" },
   intelligence: { fr: "Intelligence", en: "Intelligence" },
   projects: { fr: "Projects", en: "Projects" },

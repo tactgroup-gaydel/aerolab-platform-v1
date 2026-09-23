@@ -1,4 +1,4 @@
-import { and, count, eq, like, or } from "drizzle-orm";
+import { and, count, countDistinct, eq, isNotNull, like, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { actRequests, airports, connectorRuns, dataSources, InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -207,4 +207,60 @@ export async function getAirportsCount(input: Pick<GetAirportsInput, "search" | 
   const filtered = conditions.length > 0 ? query.where(and(...conditions)) : query;
   const [row] = await filtered;
   return row?.total ?? 0;
+}
+
+export type AirportsStats = {
+  total: number;
+  withIata: number;
+  withIcao: number;
+  countriesCovered: number;
+  topCountries: { countryCode: string; total: number }[];
+};
+
+const EMPTY_AIRPORTS_STATS: AirportsStats = {
+  total: 0,
+  withIata: 0,
+  withIcao: 0,
+  countriesCovered: 0,
+  topCountries: [],
+};
+
+/**
+ * Derived indicators computed with real SQL aggregates over the `airports`
+ * table (populated by server/connectors/ourairports/persistLive.ts). Every
+ * number here traces back to a single verified source (OurAirports); nothing
+ * is invented. Without a live database the function degrades to zeros so the
+ * UI can render a well-formed "source pending" state instead of throwing.
+ */
+export async function getAirportsStats(topLimit = 12): Promise<AirportsStats> {
+  const db = await getDb();
+  if (!db) return EMPTY_AIRPORTS_STATS;
+
+  const hasCountry = and(isNotNull(airports.countryCode), ne(airports.countryCode, ""));
+  const hasIata = and(isNotNull(airports.iata), ne(airports.iata, ""));
+  const hasIcao = and(isNotNull(airports.icao), ne(airports.icao, ""));
+
+  const [totalRow] = await db.select({ total: count() }).from(airports);
+  const [iataRow] = await db.select({ total: count() }).from(airports).where(hasIata);
+  const [icaoRow] = await db.select({ total: count() }).from(airports).where(hasIcao);
+  const [countriesRow] = await db
+    .select({ total: countDistinct(airports.countryCode) })
+    .from(airports)
+    .where(hasCountry);
+
+  const topCountries = await db
+    .select({ countryCode: airports.countryCode, total: count() })
+    .from(airports)
+    .where(hasCountry)
+    .groupBy(airports.countryCode)
+    .orderBy(sql`count(*) desc`)
+    .limit(Math.min(Math.max(topLimit, 1), 50));
+
+  return {
+    total: totalRow?.total ?? 0,
+    withIata: iataRow?.total ?? 0,
+    withIcao: icaoRow?.total ?? 0,
+    countriesCovered: countriesRow?.total ?? 0,
+    topCountries: topCountries.map((row) => ({ countryCode: row.countryCode ?? "", total: row.total })),
+  };
 }

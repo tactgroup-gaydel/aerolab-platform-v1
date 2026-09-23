@@ -140,6 +140,20 @@ describe("aerolab public procedures", () => {
     expect(typeof result.total).toBe("number");
   });
 
+  it("exposes derived airport indicators, degrading to zeros without a live database", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.dataEngine.airportsStats();
+    // Same no-DATABASE_URL fallback as the airports page test: the aggregate
+    // procedure must return a well-formed, all-zero shape and never throw.
+    expect(result.source).toBe("ourairports");
+    expect(result.total).toBe(0);
+    expect(result.withIata).toBe(0);
+    expect(result.withIcao).toBe(0);
+    expect(result.countriesCovered).toBe(0);
+    expect(Array.isArray(result.topCountries)).toBe(true);
+    expect(result.topCountries).toHaveLength(0);
+  });
+
   it("rejects an ACT request with an invalid email before persistence", async () => {
     const caller = appRouter.createCaller(createPublicContext());
 

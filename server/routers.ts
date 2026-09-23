@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { createActRequest, getActRequestCount, getAirports, getAirportsCount } from "./db";
+import { createActRequest, getActRequestCount, getAirports, getAirportsCount, getAirportsStats } from "./db";
 import { analyses, articles, countries, indicators, infrastructures, markets, projects, searchContent, sectors } from "@shared/content";
 import { connectorCatalog, preparedConnectors } from "./connectors";
 import { getMobilitySnapshot } from "./dataEngine";
@@ -72,6 +72,10 @@ export const appRouter = router({
           offset: params.offset ?? 0,
         };
       }),
+    airportsStats: publicProcedure.query(async () => ({
+      ...(await getAirportsStats()),
+      source: "ourairports" as const,
+    })),
   }),
   act: router({
     create: publicProcedure

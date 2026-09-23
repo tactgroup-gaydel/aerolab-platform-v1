@@ -104,6 +104,7 @@ export function AeroShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const moduleLinks = [
     { href: "/data", label: copy.data, note: locale === "fr" ? "Indicateurs sourcés" : "Sourced indicators" },
+    { href: "/airports", label: copy.airports, note: locale === "fr" ? "Base aéroports réelle" : "Real airports database" },
     { href: "/map", label: copy.map, note: locale === "fr" ? "Territoires & infrastructures" : "Territories & infrastructure" },
     { href: "/intelligence", label: copy.intelligence, note: locale === "fr" ? "Lectures stratégiques" : "Strategic readings" },
     { href: "/projects", label: copy.projects, note: locale === "fr" ? "Problématiques & capacités" : "Questions & capabilities" },

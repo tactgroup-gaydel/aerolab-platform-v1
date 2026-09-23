@@ -6,6 +6,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { LocaleProvider } from "./contexts/LocaleContext";
 import NotFound from "./pages/NotFound";
 import { ActPage, ActuPage, AnalysisPage, ArticlePage, CountryPage, DataPage, Home, HubPage, InfrastructurePage, IntelligencePage, IndicatorPage, MapPage, MarketPage, ProjectPage, ProjectsPage, SectorPage } from "./pages/AeroPages";
+import { AirportsPage } from "./pages/AirportsPage";
 
 function Router() {
   return <Switch>
@@ -18,6 +19,7 @@ function Router() {
     <Route path="/mobility-hub/infrastructure/:slug" component={InfrastructurePage} />
     <Route path="/mobility-hub/:slug" component={CountryPage} />
     <Route path="/data" component={DataPage} />
+    <Route path="/airports" component={AirportsPage} />
     <Route path="/data/:slug" component={IndicatorPage} />
     <Route path="/map" component={MapPage} />
     <Route path="/intelligence" component={IntelligencePage} />
