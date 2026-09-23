@@ -1,3 +1,4 @@
+import "dotenv/config";
 /**
  * CLI manuel : pnpm tsx server/connectors/worldbank/persistLive.ts [--indicator=CODE]
  * Vrai fetch World Bank + vraie écriture MySQL. Réutilise persist.ts.
