@@ -215,6 +215,7 @@ export type AirportsStats = {
   withIcao: number;
   countriesCovered: number;
   topCountries: { countryCode: string; total: number }[];
+  africaTopCountries: { countryCode: string; total: number }[];
 };
 
 const EMPTY_AIRPORTS_STATS: AirportsStats = {
@@ -223,6 +224,7 @@ const EMPTY_AIRPORTS_STATS: AirportsStats = {
   withIcao: 0,
   countriesCovered: 0,
   topCountries: [],
+  africaTopCountries: [],
 };
 
 /**
@@ -256,12 +258,24 @@ export async function getAirportsStats(topLimit = 12): Promise<AirportsStats> {
     .orderBy(sql`count(*) desc`)
     .limit(Math.min(Math.max(topLimit, 1), 50));
 
+  // Liste de référence des codes ISO2 des pays africains (donnée géographique,
+  // pas une mesure) pour l'angle « Africa Air Connectivity ».
+  const AFRICA_ISO2 = ["DZ","AO","BJ","BW","BF","BI","CV","CM","CF","TD","KM","CG","CD","CI","DJ","EG","GQ","ER","SZ","ET","GA","GM","GH","GN","GW","KE","LS","LR","LY","MG","MW","ML","MR","MU","MA","MZ","NA","NE","NG","RW","ST","SN","SC","SL","SO","ZA","SS","SD","TZ","TG","TN","UG","ZM","ZW"];
+  const africaRows = await db
+    .select({ countryCode: airports.countryCode, total: count() })
+    .from(airports)
+    .where(and(hasCountry, inArray(airports.countryCode, AFRICA_ISO2)))
+    .groupBy(airports.countryCode)
+    .orderBy(sql`count(*) desc`)
+    .limit(Math.min(Math.max(topLimit, 1), 54));
+
   return {
     total: totalRow?.total ?? 0,
     withIata: iataRow?.total ?? 0,
     withIcao: icaoRow?.total ?? 0,
     countriesCovered: countriesRow?.total ?? 0,
     topCountries: topCountries.map((row) => ({ countryCode: row.countryCode ?? "", total: row.total })),
+    africaTopCountries: africaRows.map((row) => ({ countryCode: row.countryCode ?? "", total: row.total })),
   };
 }
 

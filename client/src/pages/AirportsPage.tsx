@@ -92,10 +92,10 @@ export function AirportsPage() {
     prev: locale === "fr" ? "Précédent" : "Previous",
     next: locale === "fr" ? "Suivant" : "Next",
     iataShare: locale === "fr" ? "part IATA" : "IATA share",
-    lpiTitle: locale === "fr" ? "AÉROPORTS × LOGISTIQUE" : "AIRPORTS × LOGISTICS",
+    lpiTitle: locale === "fr" ? "AÉROPORTS AFRICAINS × LOGISTIQUE" : "AFRICAN AIRPORTS × LOGISTICS",
     lpiIntro: locale === "fr"
-      ? "Pour chaque pays le plus doté en aéroports, son indice de performance logistique (LPI) — le lien entre l'infrastructure et la capacité réelle à faire circuler les flux."
-      : "For each country with the most airports, its Logistics Performance Index (LPI) — the link between infrastructure and the real ability to move flows.",
+      ? "Pour chaque pays africain le plus doté en aéroports, son indice de performance logistique (LPI) — le lien entre l'infrastructure aéroportuaire et la capacité réelle à faire circuler les flux sur le continent."
+      : "For each African country with the most airports, its Logistics Performance Index (LPI) — the link between airport infrastructure and the real ability to move flows across the continent.",
     lpiSource: locale === "fr" ? "LPI : World Bank · échelle 1–5 · CC BY 4.0" : "LPI: World Bank · scale 1–5 · CC BY 4.0",
     airportsCol: locale === "fr" ? "aéroports" : "airports",
     lpiPending: locale === "fr"
@@ -159,7 +159,7 @@ export function AirportsPage() {
           </div>
         )}
 
-        {stats && stats.topCountries.length > 0 && (
+        {stats && stats.africaTopCountries.length > 0 && (
           <div className="lpi-section">
             <div className="lpi-head">
               <span className="eyebrow">{T.lpiTitle}</span>
@@ -167,7 +167,7 @@ export function AirportsPage() {
             </div>
             <p className="lpi-intro">{T.lpiIntro}</p>
             <div className="lpi-grid">
-              {stats.topCountries.map((item) => {
+              {stats.africaTopCountries.map((item) => {
                 const lpi = lpiByCountry.get(item.countryCode.toUpperCase());
                 const pct = lpi ? Math.max(4, Math.min(100, (lpi.value / 5) * 100)) : 0;
                 return (
