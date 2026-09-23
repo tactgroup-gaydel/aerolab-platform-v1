@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { createActRequest, getActRequestCount, getAirports, getAirportsCount, getAirportsStats, getCountryIndicators } from "./db";
+import { createActRequest, getActRequestCount, getAirports, getAirportsCount, getAirportsStats, getCountryIndicators, getEntityByIcao } from "./db";
 import { analyses, articles, countries, indicators, infrastructures, markets, projects, searchContent, sectors } from "@shared/content";
 import { connectorCatalog, preparedConnectors } from "./connectors";
 import { getMobilitySnapshot } from "./dataEngine";
@@ -89,6 +89,12 @@ export const appRouter = router({
           rows: rows.map((row) => ({ ...row, source: "worldbank" as const })),
           total: rows.length,
         };
+      }),
+    entity: publicProcedure
+      .input(z.object({ icao: z.string().trim().min(1) }))
+      .query(async ({ input }) => {
+        const result = await getEntityByIcao(input.icao);
+        return result ?? { entity: null, identifiers: [], observations: [], linkedAirports: 0 };
       }),
   }),
   act: router({

@@ -264,6 +264,8 @@ export const airports = mysqlTable(
     countryId: int("countryId"),
     latitude: varchar("latitude", { length: 32 }),
     longitude: varchar("longitude", { length: 32 }),
+    /** J4 — lien vers l'entité canonique AeroLab. Nullable, rempli par la consolidation. */
+    entityId: int("entityId"),
     retrievedAt: timestamp("retrievedAt").defaultNow().notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -318,3 +320,45 @@ export const countryIndicators = mysqlTable(
 
 export type CountryIndicatorRow = typeof countryIndicators.$inferSelect;
 export type InsertCountryIndicatorRow = typeof countryIndicators.$inferInsert;
+
+/**
+ * AJOUT — Jalon J4 (graphe de connaissance). Entité canonique AeroLab :
+ * un objet réel (aéroport, port, pays…) auquel plusieurs sources se rattachent
+ * via entityIdentifiers. Ajout pur.
+ */
+export const entities = mysqlTable("entities", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("type", ["airport", "port", "city", "country", "infrastructure", "corridor"]).notNull(),
+  name: varchar("name", { length: 220 }).notNull(),
+  countryCode: varchar("countryCode", { length: 4 }),
+  latitude: varchar("latitude", { length: 32 }),
+  longitude: varchar("longitude", { length: 32 }),
+  primarySourceId: int("primarySourceId"),
+  primaryExternalId: varchar("primaryExternalId", { length: 220 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/**
+ * Identifiants qui pointent vers une entité. La clé unique (scheme, value)
+ * est ce qui permet à deux sources de retrouver le MÊME objet
+ * (ex. scheme "icao" value "GOBD" → l'aéroport Blaise Diagne).
+ */
+export const entityIdentifiers = mysqlTable(
+  "entityIdentifiers",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    entityId: int("entityId").notNull(),
+    scheme: varchar("scheme", { length: 40 }).notNull(),
+    value: varchar("value", { length: 220 }).notNull(),
+    sourceId: int("sourceId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => ({
+    schemeValueIdx: uniqueIndex("entity_identifiers_scheme_value_idx").on(table.scheme, table.value),
+  }),
+);
+
+export type EntityRow = typeof entities.$inferSelect;
+export type InsertEntityRow = typeof entities.$inferInsert;
+export type EntityIdentifierRow = typeof entityIdentifiers.$inferSelect;

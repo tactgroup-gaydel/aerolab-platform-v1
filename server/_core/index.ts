@@ -65,6 +65,17 @@ async function startServer() {
         res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
       }
     });
+    app.get("/api/dev/consolidate-entities", async (req, res) => {
+      try {
+        const { consolidateAirportEntities } = await import("../entities/consolidate");
+        const country = typeof req.query.country === "string" ? req.query.country : undefined;
+        const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+        const result = await consolidateAirportEntities({ countryCode: country, limit });
+        res.json({ ok: true, ...result });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    });
   }
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {

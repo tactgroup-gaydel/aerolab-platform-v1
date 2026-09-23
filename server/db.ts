@@ -1,6 +1,6 @@
 import { and, count, countDistinct, eq, inArray, isNotNull, like, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { actRequests, airports, connectorRuns, countryIndicators, dataSources, InsertUser, users } from "../drizzle/schema";
+import { actRequests, airports, connectorRuns, countryIndicators, dataSources, entities, entityIdentifiers, InsertUser, sourceObservations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -315,5 +315,39 @@ export async function getCountryIndicators(input: GetCountryIndicatorsInput = {}
     // Table pas encore créée (avant la première ingestion World Bank) : dégrade
     // proprement en tableau vide plutôt que de jeter/logger une erreur.
     return [];
+  }
+}
+
+
+/**
+ * J4 — lecture du graphe : renvoie l'entité canonique reliée à un code ICAO,
+ * avec ses identifiants (toutes sources), sa provenance et le nb d'aéroports liés.
+ * Dégrade à null si la base ou les tables n'existent pas encore.
+ */
+export async function getEntityByIcao(icao: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const code = icao.trim().toUpperCase();
+  if (!code) return null;
+  try {
+    const idRows = await db
+      .select({ entityId: entityIdentifiers.entityId })
+      .from(entityIdentifiers)
+      .where(and(eq(entityIdentifiers.scheme, "icao"), eq(entityIdentifiers.value, code)))
+      .limit(1);
+    const entityId = idRows[0]?.entityId;
+    if (!entityId) return null;
+    const [entity] = await db.select().from(entities).where(eq(entities.id, entityId)).limit(1);
+    if (!entity) return null;
+    const identifiers = await db.select().from(entityIdentifiers).where(eq(entityIdentifiers.entityId, entityId));
+    const observations = await db
+      .select()
+      .from(sourceObservations)
+      .where(eq(sourceObservations.externalId, entity.primaryExternalId ?? ""))
+      .limit(10);
+    const [linked] = await db.select({ total: count() }).from(airports).where(eq(airports.entityId, entityId));
+    return { entity, identifiers, observations, linkedAirports: linked?.total ?? 0 };
+  } catch {
+    return null;
   }
 }
